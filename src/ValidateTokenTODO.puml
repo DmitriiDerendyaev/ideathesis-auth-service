@@ -1,0 +1,66 @@
+@startuml
+title Централизованная проверка токенов через Auth-Service
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor Клиент as client
+participant UserService as user
+participant AuthService as auth
+database TokenDB as db
+
+autonumber
+
+client -> user ++ : GET /protected-data\nAuthorization: Bearer <token>
+activate user
+
+user -> auth ++ : POST /validate-token\n{token}
+activate auth
+
+auth -> db ++ : Проверить отзыв токена
+activate db
+
+alt Токен отозван
+    db --> auth : revoked=true
+    auth --> user : 401 Unauthorized\n{"valid":false, "reason":"revoked"}
+    deactivate auth
+    deactivate db
+
+    user --> client -- : 401 Unauthorized
+    deactivate user
+    return
+else Токен активен
+    db --> auth : revoked=false
+    deactivate db
+end
+
+auth -> auth : validateTokenSignature(token)
+
+alt Невалидная подпись
+    auth --> user : 401 Unauthorized\n{"valid":false, "reason":"invalid_signature"}
+    deactivate auth
+
+    user --> client -- : 401 Unauthorized
+    deactivate user
+    return
+else Валидная подпись
+end
+
+auth -> auth : extractClaims(token)
+auth --> user -- : 200 OK\n{"valid":true, "userId":123, "username":"test"}
+deactivate auth
+
+user -> user : Проверить права доступа\n(userId, resource)
+
+alt Доступ запрещен
+    user --> client -- : 403 Forbidden
+    deactivate user
+    return
+else Доступ разрешен
+end
+
+user -> user : Получить запрошенные данные
+user --> client -- : 200 OK\n{protected-data}
+deactivate user
+
+@enduml

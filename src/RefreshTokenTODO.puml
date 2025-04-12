@@ -1,0 +1,71 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Процесс обновления JWT токенов
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor Клиент as client
+participant AuthService as auth
+participant TokenStorage as storage
+database TokenDB as db
+
+autonumber
+
+client -> auth ++ : POST /refresh-token\n{refreshToken}
+activate auth
+
+auth -> auth : validateToken(refreshToken)
+
+alt Токен невалидный (истек/подделка)
+    auth --> client -- : 401 Unauthorized\n"Invalid refresh token"
+    deactivate auth
+    return
+else Токен валидный
+end
+
+auth -> storage ++ : Проверить отзыв токена
+activate storage
+storage -> db ++ : SELECT * FROM revoked_tokens\nWHERE token = ?
+activate db
+
+alt Токен в черном списке
+    db --> storage : RevokedToken record
+    storage --> auth : true
+    auth --> client -- : 401 Unauthorized\n"Token revoked"
+    deactivate auth
+    deactivate storage
+    deactivate db
+    return
+else Токен активен
+    db --> storage : null
+    deactivate db
+end
+
+storage --> auth -- : false
+deactivate storage
+
+auth -> auth : extractUserId(refreshToken)
+auth -> auth : generateNewTokens(userId)
+
+alt Ошибка генерации
+    auth --> client -- : 500 Internal Server Error\n"Token generation failed"
+    deactivate auth
+    return
+else Токены сгенерированы
+end
+
+auth -> storage ++ : Добавить старый refreshToken\nв черный список
+activate storage
+storage -> db ++ : INSERT INTO revoked_tokens\nVALUES(token, expiryDate)
+activate db
+db --> storage : OK
+deactivate db
+storage --> auth -- : OK
+deactivate storage
+
+auth --> client -- : 200 OK\n{newAccessToken, newRefreshToken}
+deactivate auth
+
+@enduml
