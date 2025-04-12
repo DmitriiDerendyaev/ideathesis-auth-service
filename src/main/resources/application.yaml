@@ -12,6 +12,6 @@ spring:
       roles: ADMIN
 
 jwt:
-  secret-key: your-secret-key
+  secret-key: v3ryL0ngAndRand0mS3cr3tK3yThat1sH@rdToGu3ss123!4567890ABCDEFGHIJKL
   token-expiration-millis: 3600000 # 1 hour
   refresh-token-expiration-millis: 86400000 # 1 day

@@ -7,17 +7,20 @@ import com.example.authservice.dto.UserDTO;
 import com.example.authservice.exception.InvalidCredentialsException;
 import com.example.authservice.exception.UserAlreadyExistsException;
 import com.example.authservice.security.JwtTokenProvider;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -26,6 +29,9 @@ public class AuthService {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Value("${user-service.base-url}")
     private String userServiceBaseUrl;
@@ -38,6 +44,7 @@ public class AuthService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
+            log.info("/search?username=");
             restTemplate.exchange(userServiceBaseUrl + "/search?username=" + request.getUsername(), HttpMethod.GET, entity, UserDTO.class);
             throw new UserAlreadyExistsException("User with this username already exists");
         } catch (Exception e) {
@@ -45,6 +52,7 @@ public class AuthService {
         }
 
         try {
+            log.info("/search?email=");
             restTemplate.exchange(userServiceBaseUrl + "/search?email=" + request.getEmail(), HttpMethod.GET, entity, UserDTO.class);
             throw new UserAlreadyExistsException("User with this email already exists");
         } catch (Exception e) {
@@ -53,7 +61,7 @@ public class AuthService {
 
         UserDTO userDTO = UserDTO.builder()
                 .username(request.getUsername())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword())) // Хеширование пароля
                 .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -68,14 +76,23 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Basic " + Base64.getEncoder().encodeToString("admin:admin".getBytes()));
-
-        HttpEntity<LoginRequest> entity = new HttpEntity<>(request, headers);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<UserDTO> userResponse = restTemplate.exchange(userServiceBaseUrl + "/search?username=" + request.getUsername(), HttpMethod.GET, entity, UserDTO.class);
+            ResponseEntity<UserDTO> userResponse = restTemplate.exchange(
+                    userServiceBaseUrl + "/search?username=" + request.getUsername(),
+                    HttpMethod.GET,
+                    entity,
+                    UserDTO.class
+            );
             UserDTO userDTO = userResponse.getBody();
 
-            if (!userDTO.getPassword().equals(request.getPassword())) {
+            String rawPassword = "testpass";
+            String encoded = passwordEncoder.encode(rawPassword);
+            log.info("Encoded 'testpass': {}", encoded);
+            log.info("Matches with stored hash: {}", passwordEncoder.matches(rawPassword, userDTO.getPassword()));
+
+            if (!passwordEncoder.matches(request.getPassword(), userDTO.getPassword())) {
                 throw new InvalidCredentialsException("Invalid username or password");
             }
 
@@ -87,7 +104,7 @@ public class AuthService {
                     .refreshToken(refreshToken)
                     .build();
         } catch (Exception e) {
-            throw new InvalidCredentialsException("Invalid username or password");
+            throw new InvalidCredentialsException(e.getMessage());
         }
     }
 
