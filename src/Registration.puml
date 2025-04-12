@@ -1,0 +1,88 @@
+
+
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Процесс регистрации пользователя
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor Клиент as client
+participant AuthService as auth
+participant UserService as user
+database UserDB as db
+
+autonumber
+
+client -> auth ++ : POST /register\n{username, email, password}
+activate auth
+
+auth -> user ++ : GET /search?username=...
+activate user
+user -> db ++ : SELECT * FROM users\nWHERE username = ?
+activate db
+
+alt Пользователь с таким username существует
+    db --> user : User record
+    user --> auth : 200 OK with user data
+    auth --> client -- : 400 Bad Request\n"Username already exists"
+    deactivate auth
+    deactivate user
+    deactivate db
+    return
+else Пользователь не найден
+    db --> user : null
+    deactivate db
+end
+
+user --> auth -- : 404 Not Found
+deactivate user
+
+auth -> user ++ : GET /search?email=...
+activate user
+user -> db ++ : SELECT * FROM users\nWHERE email = ?
+activate db
+
+alt Пользователь с таким email существует
+    db --> user : User record
+    user --> auth : 200 OK with user data
+    auth --> client -- : 400 Bad Request\n"Email already exists"
+    deactivate auth
+    deactivate user
+    deactivate db
+    return
+else Пользователь не найден
+    db --> user : null
+    deactivate db
+end
+
+user --> auth -- : 404 Not Found
+deactivate user
+
+auth -> auth : passwordEncoder.encode(password)
+auth -> user ++ : POST /users\n{userDTO with hashed password}
+activate user
+user -> db ++ : INSERT INTO users\nVALUES(...)
+activate db
+
+alt Ошибка сохранения
+    db --> user : SQL Exception
+    user --> auth : 500 Internal Server Error
+    auth --> client -- : 500 "Registration failed"
+    deactivate auth
+    deactivate user
+    deactivate db
+    return
+else Успешное сохранение
+    db --> user : New user record
+    user --> auth : 201 Created\nwith user data
+    deactivate db
+    deactivate user
+end
+
+auth -> auth : generateTokens(userId, username)
+auth --> client -- : 200 OK\n{accessToken, refreshToken}
+deactivate auth
+
+@enduml
