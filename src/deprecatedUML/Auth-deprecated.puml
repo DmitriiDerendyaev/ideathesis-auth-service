@@ -1,0 +1,59 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Процесс авторизации пользователя
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor Клиент as client
+participant AuthService as auth
+participant UserService as user
+database UserDB as db
+
+autonumber
+
+client -> auth ++ : POST /login\n{username, password}
+activate auth
+
+auth -> user ++ : GET /search?username=...
+activate user
+user -> db ++ : SELECT * FROM users\nWHERE username = ?
+activate db
+
+alt Пользователь не найден
+    db --> user : null
+    user --> auth : 404 Not Found
+    auth --> client -- : 401 Unauthorized\n"Invalid credentials"
+    deactivate auth
+    deactivate user
+    deactivate db
+    return
+else Пользователь найден
+    db --> user : User record\nwith password hash
+    deactivate db
+end
+
+user --> auth -- : 200 OK\nUserDTO with hashed password
+deactivate user
+
+auth -> auth : passwordEncoder.matches\n(inputPass, dbPass)
+
+alt Пароль не совпадает
+    auth --> client -- : 401 Unauthorized\n"Invalid credentials"
+    deactivate auth
+    return
+else Пароль верный
+    auth -> auth : generateTokens(userId, username)
+
+    alt Ошибка генерации токена
+        auth --> client -- : 500 Internal Server Error\n"Token generation failed"
+        deactivate auth
+        return
+    else Токены успешно созданы
+        auth --> client -- : 200 OK\n{accessToken, refreshToken}
+        deactivate auth
+    end
+end
+
+@enduml
