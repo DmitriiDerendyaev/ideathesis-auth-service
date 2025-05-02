@@ -5,25 +5,27 @@ skinparam ParticipantPadding 20
 skinparam BoxPadding 10
 
 actor Пользователь as user
+participant "TelegramBot" as bot
 participant "AuthService" as auth
 participant "API ВУЗа" as vuz
 database "UserDB" as db
 
 autonumber
 
-user -> auth ++ : POST /login {ulogin, upassword}
+user -> bot : Вводит логин/пароль
+bot -> auth ++ : POST /bot-login {login, password}
 
-auth -> vuz ++ : POST /lk_api.php\nformData: ulogin, upassword
+auth -> vuz ++ : POST /lk_api.php\nform-data: ulogin, upassword
 
 alt Ошибка соединения
     vuz --> auth -- : 503 Service Unavailable
-    auth --> user -- : 503 "Сервис ВУЗа недоступен"
+    auth --> bot -- : 503 "Сервис ВУЗа недоступен"
     deactivate auth
     deactivate vuz
     return
 else Неверные данные
     vuz --> auth -- : 401 Unauthorized
-    auth --> user -- : 401 "Неверные учетные данные"
+    auth --> bot -- : 401 "Неверные учетные данные"
     deactivate auth
     deactivate vuz
     return
@@ -35,26 +37,30 @@ deactivate vuz
 auth -> auth : verifyJWT(jwt, publicKey)
 
 alt Невалидный токен
-    auth --> user -- : 401 "Ошибка проверки токена"
+    auth --> bot -- : 401 "Ошибка проверки токена"
     deactivate auth
     return
 end
 
-auth -> db ++ : SELECT * FROM users\nWHERE vuz_guid = :guid
+auth -> db ++ : SELECT * FROM users WHERE vuz_guid = :guid
 
 alt Пользователь не найден
     db --> auth : null
     deactivate db
 
-    auth --> user -- : 202 Accepted\n"Данные синхронизируются, попробуйте позже"
+    auth -> auth : Создает запрос на синхронизацию (если нужно)
+    auth --> bot -- : 202 Accepted\n"Данные синхронизируются, попробуйте позже"
     deactivate auth
     return
 else Пользователь найден
-    db --> auth : User record
+    db --> auth : UserDTO {id, guid, name, ...}
     deactivate db
 
-    auth --> user -- : 200 OK\n{jwt, jwt_refresh}
+    auth -> auth : generateInternalJWT(UserDTO)
+    auth --> bot -- : 200 OK\n{jwt, jwt_refresh, user_data}
     deactivate auth
 end
+
+bot -> user : Успешная авторизация\n(или сообщение об ошибке)
 
 @enduml

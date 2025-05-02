@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginResponse {
+public class BotLoginResponse {
     private String accessToken;
     private String refreshToken;
+    private UserDTO user;
+    private String message;
 }
