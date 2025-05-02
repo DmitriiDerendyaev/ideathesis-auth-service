@@ -1,55 +1,55 @@
 @startuml
-title Процесс авторизации пользователя через внешний сервис ВУЗа
+title Универсальный процесс авторизации через внешний сервис (например, ВУЗ)
 skinparam sequenceMessageAlign center
 skinparam ParticipantPadding 20
 skinparam BoxPadding 10
 
 actor Пользователь as user
-participant "TelegramBot" as bot
+participant "ClientApp" as client
 participant "AuthService" as auth
-participant "API ВУЗа" as vuz
+participant "ExternalAPI" as external
 database "UserDB" as db
 
 autonumber
 
-user -> bot : Вводит логин/пароль
-bot -> auth ++ : POST /bot-login {login, password}
+user -> client : Вводит учетные данные
+client -> auth ++ : POST /auth {credentials, client_type}
 
-auth -> vuz ++ : POST /lk_api.php\nform-data: ulogin, upassword
+auth -> external ++ : Запрос к внешнему API\n{credentials}
 
 alt Ошибка соединения
-    vuz --> auth -- : 503 Service Unavailable
-    auth --> bot -- : 503 "Сервис ВУЗа недоступен"
+    external --> auth -- : Ошибка сервиса
+    auth --> client -- : 503 "Сервис недоступен"
     deactivate auth
-    deactivate vuz
+    deactivate external
     return
 else Неверные данные
-    vuz --> auth -- : 401 Unauthorized
-    auth --> bot -- : 401 "Неверные учетные данные"
+    external --> auth -- : 401 Unauthorized
+    auth --> client -- : 401 "Неверные учетные данные"
     deactivate auth
-    deactivate vuz
+    deactivate external
     return
 end
 
-vuz --> auth -- : 200 OK\n{token, guid, jwt, jwt_refresh}
-deactivate vuz
+external --> auth -- : Успешный ответ\n{token, user_identifier, ...}
+deactivate external
 
-auth -> auth : verifyJWT(jwt, publicKey)
+auth -> auth : Валидация полученных данных
 
-alt Невалидный токен
-    auth --> bot -- : 401 "Ошибка проверки токена"
+alt Невалидные данные
+    auth --> client -- : 401 "Ошибка проверки токена"
     deactivate auth
     return
 end
 
-auth -> db ++ : SELECT * FROM users WHERE vuz_guid = :guid
+auth -> db ++ : Поиск пользователя\nпо user_identifier
 
 alt Пользователь не найден
     db --> auth : null
     deactivate db
 
-    auth -> auth : Создает запрос на синхронизацию (если нужно)
-    auth --> bot -- : 202 Accepted\n"Данные синхронизируются, попробуйте позже"
+    auth -> auth : Создание нового пользователя\nили запрос синхронизации
+    auth --> client -- : 202 Accepted\n"Требуется дополнительная обработка"
     deactivate auth
     return
 else Пользователь найден
@@ -61,6 +61,6 @@ else Пользователь найден
     deactivate auth
 end
 
-bot -> user : Успешная авторизация\n(или сообщение об ошибке)
+client -> user : Уведомление о результате авторизации
 
 @enduml
