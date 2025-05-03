@@ -1,7 +1,6 @@
 package com.example.authservice.dto;
 
 import jakarta.validation.constraints.NotBlank;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,10 +10,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginRequest {
-    @NotBlank(message = "Username is required")
-    private String username;
-
-    @NotBlank(message = "Password is required")
-    private String password;
+public class VuzAuthRequest {
+    @NotBlank
+    private String ulogin;
+    @NotBlank
+    private String upassword;
 }

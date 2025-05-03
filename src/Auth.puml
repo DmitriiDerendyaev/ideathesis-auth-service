@@ -1,60 +1,66 @@
 @startuml
-title Процесс авторизации пользователя через внешний сервис ВУЗа
+title Универсальный процесс авторизации через внешний сервис (например, ВУЗ)
 skinparam sequenceMessageAlign center
 skinparam ParticipantPadding 20
 skinparam BoxPadding 10
 
 actor Пользователь as user
+participant "ClientApp" as client
 participant "AuthService" as auth
-participant "API ВУЗа" as vuz
+participant "ExternalAPI" as external
 database "UserDB" as db
 
 autonumber
 
-user -> auth ++ : POST /login {ulogin, upassword}
+user -> client : Вводит учетные данные
+client -> auth ++ : POST /auth {credentials, client_type}
 
-auth -> vuz ++ : POST /lk_api.php\nformData: ulogin, upassword
+auth -> external ++ : Запрос к внешнему API\n{credentials}
 
 alt Ошибка соединения
-    vuz --> auth -- : 503 Service Unavailable
-    auth --> user -- : 503 "Сервис ВУЗа недоступен"
+    external --> auth -- : Ошибка сервиса
+    auth --> client -- : 503 "Сервис недоступен"
     deactivate auth
-    deactivate vuz
+    deactivate external
     return
 else Неверные данные
-    vuz --> auth -- : 401 Unauthorized
-    auth --> user -- : 401 "Неверные учетные данные"
+    external --> auth -- : 401 Unauthorized
+    auth --> client -- : 401 "Неверные учетные данные"
     deactivate auth
-    deactivate vuz
+    deactivate external
     return
 end
 
-vuz --> auth -- : 200 OK\n{token, guid, jwt, jwt_refresh}
-deactivate vuz
+external --> auth -- : Успешный ответ\n{token, user_identifier, ...}
+deactivate external
 
-auth -> auth : verifyJWT(jwt, publicKey)
+auth -> auth : Валидация полученных данных
 
-alt Невалидный токен
-    auth --> user -- : 401 "Ошибка проверки токена"
+alt Невалидные данные
+    auth --> client -- : 401 "Ошибка проверки токена"
     deactivate auth
     return
 end
 
-auth -> db ++ : SELECT * FROM users\nWHERE vuz_guid = :guid
+auth -> db ++ : Поиск пользователя\nпо user_identifier
 
 alt Пользователь не найден
     db --> auth : null
     deactivate db
 
-    auth --> user -- : 202 Accepted\n"Данные синхронизируются, попробуйте позже"
+    auth -> auth : Создание нового пользователя\nили запрос синхронизации
+    auth --> client -- : 202 Accepted\n"Требуется дополнительная обработка"
     deactivate auth
     return
 else Пользователь найден
-    db --> auth : User record
+    db --> auth : UserDTO {id, guid, name, ...}
     deactivate db
 
-    auth --> user -- : 200 OK\n{jwt, jwt_refresh}
+    auth -> auth : generateInternalJWT(UserDTO)
+    auth --> bot -- : 200 OK\n{jwt, jwt_refresh, user_data}
     deactivate auth
 end
+
+client -> user : Уведомление о результате авторизации
 
 @enduml
