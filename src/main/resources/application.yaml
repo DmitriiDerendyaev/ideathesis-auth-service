@@ -1,17 +1,31 @@
 server:
   port: 8081
+  ssl:
+    enabled: false
+
+vuz:
+  auth-url: https://e.mospolytech.ru/old/lk_api.php
+  disable-ssl-verification: true
+  jwt-public-key: ${JWT_PUBLIC_KEY}
 
 user-service:
-  base-url: http://localhost:8080/api/v1/users
-
-spring:
-  security:
-    user:
-      name: admin
-      password: admin
-      roles: ADMIN
+  base-url: http://localhost:8080/api/users
 
 jwt:
-  secret-key: v3ryL0ngAndRand0mS3cr3tK3yThat1sH@rdToGu3ss123!4567890ABCDEFGHIJKL
+  secret-key: ${JWT_SECRET_KEY}
   token-expiration-millis: 3600000 # 1 hour
   refresh-token-expiration-millis: 86400000 # 1 day
+
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
