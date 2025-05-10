@@ -34,30 +34,30 @@ jobs:
         env:
           SSH_USER: homic
           SSH_HOST: 91.146.28.240
-          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }} # Используем секрет
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
-          # Установка sshpass
           sudo apt-get update && sudo apt-get install -y sshpass
-
-          # Копируем JAR-файл и Dockerfile
+          # Проверка наличия JAR-файла
+          if [ ! -f target/auth-service-0.0.1-SNAPSHOT.jar ]; then
+            echo "Error: JAR file target/auth-service-0.0.1-SNAPSHOT.jar not found"
+            exit 1
+          fi
           sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no target/auth-service-0.0.1-SNAPSHOT.jar $SSH_USER@$SSH_HOST:/home/$SSH_USER/deploy/auth-service/app.jar
           sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no Dockerfile $SSH_USER@$SSH_HOST:/home/$SSH_USER/deploy/auth-service/Dockerfile
-
-          # Выполняем команды на сервере
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << EOF
-            # Останавливаем и удаляем старый контейнер
             docker stop auth-service || true
             docker rm auth-service || true
             docker rmi auth-service:latest || true
-
-            # Собираем и запускаем новый контейнер
+            docker network create app-network || true
             cd /home/$SSH_USER/deploy/auth-service
+            ls -la # Для отладки: проверить наличие app.jar и Dockerfile
             docker build -t auth-service:latest .
-            docker run -d --name auth-service -p 8081:8081 \
+            docker run -d --name auth-service --network app-network -p 8081:8081 \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               -e DATABASE_USERNAME="${{ secrets.DATABASE_USERNAME }}" \
               -e DATABASE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}" \
               -e JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
               -e JWT_PUBLIC_KEY="${{ secrets.JWT_PUBLIC_KEY }}" \
+              -e USER_SERVICE_BASE_URL="http://user-service:8080/api/users" \
               auth-service:latest
           EOF
