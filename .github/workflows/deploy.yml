@@ -1,0 +1,63 @@
+name: Build and Deploy Auth Service to VPS
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Клонирование репозитория
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Установка JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Сборка проекта
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      # Проверка наличия JAR-файла
+      - name: List target directory
+        run: ls -la target/
+
+      # Логин на VPS через SSH и деплой
+      - name: Deploy to VPS
+        env:
+          SSH_USER: homic
+          SSH_HOST: 91.146.28.240
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }} # Используем секрет
+        run: |
+          # Установка sshpass
+          sudo apt-get update && sudo apt-get install -y sshpass
+
+          # Копируем JAR-файл и Dockerfile
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no target/auth-service-0.0.1-SNAPSHOT.jar $SSH_USER@$SSH_HOST:/home/$SSH_USER/deploy/auth-service/app.jar
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no Dockerfile $SSH_USER@$SSH_HOST:/home/$SSH_USER/deploy/auth-service/Dockerfile
+
+          # Выполняем команды на сервере
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << EOF
+            # Останавливаем и удаляем старый контейнер
+            docker stop auth-service || true
+            docker rm auth-service || true
+            docker rmi auth-service:latest || true
+
+            # Собираем и запускаем новый контейнер
+            cd /home/$SSH_USER/deploy/auth-service
+            docker build -t auth-service:latest .
+            docker run -d --name auth-service -p 8081:8081 \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e DATABASE_USERNAME="${{ secrets.DATABASE_USERNAME }}" \
+              -e DATABASE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}" \
+              -e JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+              -e JWT_PUBLIC_KEY="${{ secrets.JWT_PUBLIC_KEY }}" \
+              auth-service:latest
+          EOF
