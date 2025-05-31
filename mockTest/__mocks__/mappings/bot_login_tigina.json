@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/bot-login",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "ulogin": "tigina",
+          "upassword": "teacher!"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "accessToken": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiLQlNC10YDQtdC90LTRj9C10LIg0JTQvNC40YLRgNC40Lkg0KHQtdGA0LPQtdC10LLQuNGHIiwidXNlcklkIjoiNmUyMjQ1MzktZTNiMC0xMWViLTgwZDMtYzVhODVlOThhNjFjIiwidHlwZSI6IkFDQ0VTUyIsImlhdCI6MTc0NzMxNjEwMCwiZXhwIjoxNzQ3MzE5NzAwfQ.hq-cj1QXuxvQajLQrlpJrs2J_Md0jhtZiVifAq3jBLkCucvcliHY5jo73FkXv43u2cPfHWX4MDroyxCuDvnqCQ",
+      "refreshToken": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiLQlNC10YDQtdC90LTRj9C10LIg0JTQvNC40YLRgNC40Lkg0KHQtdGA0LPQtdC10LLQuNGHIiwidXNlcklkIjoiNmUyMjQ1MzktZTNiMC0xMWViLTgwZDMtYzVhODVlOThhNjFjIiwidHlwZSI6IlJFRlJFU0giLCJpYXQiOjE3NDczMTYxMDAsImV4cCI6MTc0NzQwMjUwMH0.DdHIdw5hse6IwiAsTIgR3V2bB9ns69q_Y-g_Yga1Ls7aZUd6r7E8ZLLZLV1hFLwilEayvnY7_PKQb2fok74mwQ",
+      "user": {
+        "guid": "def01000-ff00-0f00-0f00-000000032870",
+        "email": null,
+        "firstName": "Мария",
+        "lastName": "Тигина",
+        "middleName": "Степановна",
+        "phone": null,
+        "userType": "employee"
+      },
+      "message": "Успешная авторизация"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
