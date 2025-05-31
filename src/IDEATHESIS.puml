@@ -1,0 +1,47 @@
+@startuml
+title Conceptual Diagram of Polytech System
+
+left to right direction
+
+actor "Student" as student
+actor "Employee" as employee
+
+component "Web/Mobile Client" as client
+component "Telegram" as telegram
+
+package "IDEATHESIS System" as polytech {
+    component "Auth Service" as auth
+    component "User Service" as users
+    component "Topic Service" as topics
+    component "Bot Service" as bot
+    component "ETL Service" as etl
+}
+
+package "External Systems" as ext_sys {
+    component "University System" as unisystem
+    component "GigaChat" as gigachat
+}
+
+employee --> client : uses
+student --> telegram : uses
+
+client --> auth : authenticates with
+client --> users : gets user data from
+client --> topics : generates/selects topics from
+
+telegram <--> bot : interacts with (API calls)
+
+bot --> auth : uses for authentication
+bot --> users : uses for user data
+bot --> topics : uses for topic management
+
+etl --> unisystem : fetches data from
+auth --> unisystem : authenticates with
+topics --> gigachat : generates topics using
+
+note left of polytech: Все сервисы системы объединены здесь\n(без API Gateway, клиенты взаимодействуют напрямую)
+note left of client: Клиентское приложение (веб/мобильное)
+note left of telegram: Платформа Telegram для бота
+note right of ext_sys: Внешние системы, используемые сервисами
+
+@enduml
