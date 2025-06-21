@@ -5,8 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,28 +24,41 @@ import java.util.LinkedHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+
 @RestControllerAdvice
 public class ErrorHandler extends ResponseEntityExceptionHandler {
 
-    // InvalidCredentialsException — 401
     @ExceptionHandler(InvalidCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ApiError handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
         return buildApiError(ex, 401, "Invalid Credentials");
     }
 
-    // InvalidTokenException — 401
     @ExceptionHandler(InvalidTokenException.class)
     public ApiError handleInvalidToken(InvalidTokenException ex, HttpServletRequest request) {
         return buildApiError(ex, 401, "Invalid Token");
     }
 
-    // ServiceUnavailableException — 503
     @ExceptionHandler(ServiceUnavailableException.class)
     public ApiError handleServiceUnavailable(ServiceUnavailableException ex, HttpServletRequest request) {
         return buildApiError(ex, 503, "Service Unavailable");
     }
 
-    // MethodArgumentNotValidException — 400
+    @ExceptionHandler(DuplicateUsernameException.class)
+    public ApiError handleDuplicateUsername(DuplicateUsernameException ex, HttpServletRequest request) {
+        return buildApiError(ex, 409, "Duplicate Username");
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ApiError handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
+        return buildApiError(ex, 404, "User Not Found");
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ApiError handleForbidden(ForbiddenException ex, HttpServletRequest request) {
+        return buildApiError(ex, 403, "Forbidden");
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex,
@@ -62,13 +74,11 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(error, status);
     }
 
-    // Обработка всех прочих RuntimeException
     @ExceptionHandler(RuntimeException.class)
     public ApiError handleAllOtherExceptions(RuntimeException ex, HttpServletRequest request) {
         return buildApiError(ex, 500, "Internal Server Error");
     }
 
-    // Построение объекта ApiError
     private ApiError buildApiError(Throwable ex, int status, String message) {
         Map<String, String> trace = new LinkedHashMap<>();
         trace.put("exception", ex.getClass().getName());

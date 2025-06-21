@@ -1,0 +1,66 @@
+@startuml
+title New Authentication and Credential Generation Flow
+
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor User as user
+participant "ClientApp" as client
+participant "AuthService" as auth
+database "UserDB" as db
+
+autonumber
+
+' Login Flow
+user -> client : Вводит логин и пароль
+client -> auth : POST /login {username, password}
+auth -> db : Найти пользователя по username
+alt Пользователь найден
+    db --> auth : User
+    auth -> auth : Проверить пароль с BCrypt
+    alt Пароль совпадает
+        auth -> auth : Сгенерировать JWT-токены
+        auth --> client : 200 OK {access_token, refresh_token, user_data}
+    else
+        auth --> client : 401 Unauthorized "Неверные учетные данные"
+    end
+else
+    db --> auth : null
+    auth --> client : 401 Unauthorized "Пользователь не найден"
+end
+
+' Generate Credentials Flow
+user -> client : Запрос на генерацию учетных данных {target_guid, username, password}
+client -> auth : POST /generate-credentials {target_guid, username, password} с токеном
+auth -> auth : Проверить токен и получить current_user_guid
+auth -> db : Найти current_user по current_user_guid
+alt current_user не найден
+    db --> auth : null
+    auth --> client : 401 Unauthorized "Текущий пользователь не найден"
+else
+    db --> auth : current_user
+    auth -> db : Найти target_user по target_guid
+    alt target_user не найден
+        db --> auth : null
+        auth --> client : 404 Not Found "Целевой пользователь не найден"
+    else
+        db --> auth : target_user
+        auth -> auth : Проверить права: (current.userType == "superuser" && target.userType == "teacher") || (current.userType == "teacher" && target.userType == "student")
+        alt Права предоставлены
+            auth -> auth : hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt())
+            auth -> db : Обновить target_user с username и hashedPassword
+            alt Успех
+                db --> auth : Обновленный пользователь
+                auth --> client : 200 OK "Учетные данные созданы"
+            else
+                db --> auth : Ошибка (например, дубликат username)
+                auth --> client : 409 Conflict "Логин уже занят"
+            end
+        else
+            auth --> client : 403 Forbidden "Нет прав"
+        end
+    end
+end
+
+@enduml

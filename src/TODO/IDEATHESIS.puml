@@ -36,7 +36,6 @@ bot --> users : uses for user data
 bot --> topics : uses for topic management
 
 etl --> unisystem : fetches data from
-auth --> unisystem : authenticates with
 topics --> gigachat : generates topics using
 
 note left of polytech: Все сервисы системы объединены здесь\n(без API Gateway, клиенты взаимодействуют напрямую)

@@ -10,11 +10,11 @@ import java.util.Date;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users") // Исправлено на "users" вместо зарезервированного "user"
+@Table(name = "users")
 @Data
 @Builder
-@NoArgsConstructor // Для JPA
-@AllArgsConstructor // Для Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
     @Id
     private UUID guid;
